@@ -4,7 +4,9 @@ import numpy as np
 import matplotlib.pyplot as plt 
 import seaborn as sns
 from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import StandardScaler
 encoder = LabelEncoder()
+scaler = StandardScaler()
 
 # load data
 def load_data(filepath1, filepath2, filepath3):
@@ -42,7 +44,7 @@ def get_fraud_data(fraud_data_df):
     fraud_df['purchase_time'] = pd.to_datetime(fraud_df['purchase_time'])
 
     # Create time difference feature between signup and first purchase time
-    fraud_df['time_to_first_purchase'] = (fraud_df['purchase_time'] - fraud_df['signup_time']).dt.total_seconds()
+    fraud_df['time_to_first_purchase'] = ((fraud_df['purchase_time'] - fraud_df['signup_time']).dt.total_seconds()) / (24 * 3600)  # Convert seconds to days
 
     # Move column next to purchase time
     fraud_df.insert(
@@ -108,7 +110,7 @@ def categorical_value_visualization(fraud_df):
     
     plt.subplot(3, 2, 1)
     sns.countplot(data=fraud_df, x = 'browser', palette='Set1')
-    plt.title('Source Count Distribution')
+    plt.title('Browser Count Distribution')
 
     plt.subplot(3,2,2)
     sns.countplot(data=fraud_df, x='browser', hue='class')
@@ -219,45 +221,53 @@ def merge_data(fraud_df, ip_address_df):
     return merged_df
 
 
-def feature_engineering(df):
-    merged_df =df.copy()
+def feature_engineering(fraud_data_df, ip_address_df):
+
+    fraud_df = get_fraud_data(fraud_data_df)
+
+    df = merge_data(fraud_df, ip_address_df)
+
     # Convert columns to datetime
-    merged_df['signup_time'] = pd.to_datetime(merged_df['signup_time'], errors='coerce')
-    merged_df['purchase_time'] = pd.to_datetime(merged_df['purchase_time'], errors='coerce')
+    df['signup_time'] = pd.to_datetime(df['signup_time'], errors='coerce')
+    df['purchase_time'] = pd.to_datetime(df['purchase_time'], errors='coerce')
 
     # Extract year, month, day, and hour from time columns
-    merged_df['signup_year'] = merged_df['signup_time'].dt.year
-    merged_df['signup_month'] = merged_df['signup_time'].dt.month
-    merged_df['signup_day'] = merged_df['signup_time'].dt.day
-    merged_df['signup_hour'] = merged_df['signup_time'].dt.hour
+    df['signup_year'] = df['signup_time'].dt.year
+    df['signup_month'] = df['signup_time'].dt.month
+    df['signup_day'] = df['signup_time'].dt.day
+    df['signup_hour'] = df['signup_time'].dt.hour
 
-    merged_df['purchase_year'] = merged_df['purchase_time'].dt.year
-    merged_df['purchase_month'] = merged_df['purchase_time'].dt.month
-    merged_df['purchase_day'] = merged_df['purchase_time'].dt.day
-    merged_df['purchase_hour'] = merged_df['purchase_time'].dt.hour
-
-    merged_df['days_between_signup_purchase'] = (merged_df['purchase_time'] - merged_df['signup_time']).dt.days
-    merged_df['transaction_velocity'] = 1 / (merged_df['days_between_signup_purchase'].replace(0, 1))
-
-    # age bining 
-    age_bins = [0, 18, 35, 55, 100]
-    age_labels = ['Youth', 'Adult', 'Middle_Aged', 'Senior']
-    merged_df['age_group'] = pd.cut(merged_df['age'], bins=age_bins, labels=age_labels)
+    df['purchase_year'] = df['purchase_time'].dt.year
+    df['purchase_month'] = df['purchase_time'].dt.month
+    df['purchase_day'] = df['purchase_time'].dt.day
+    df['purchase_hour'] = df['purchase_time'].dt.hour
 
     # drop uncessarly columns for model training
-    merged_df.drop(['signup_time', 'purchase_time', 'user_id', 'device_id'], axis =1, inplace = True)
+    df.drop(['signup_time', 'purchase_time', 'user_id', 'device_id', 'ip_address', 'signup_year', 'purchase_year'], axis =1, inplace = True)
 
-    return merged_df
+    return df
 
+def numerical_scaler(df):
+    numerical_cols = [
+    "purchase_value", "age", "time_to_first_purchase",
+    "signup_month", "signup_day", "signup_hour",
+    "purchase_month", "purchase_day", "purchase_hour"
+    ]
+    # Apply StandardScaler
+    df[numerical_cols] = scaler.fit_transform(df[numerical_cols])
+
+    return df
 
 def categorical_encoder(df):
     # Convert all object columns to categorical
-    categorical_col = []
     for col in df.select_dtypes(include=['object']).columns:
         df[col] = df[col].astype('category')
-        categorical_col.append(col)
+    
+    # Convert categorical columns into numerical using one-hot-encoding
+    df = pd.get_dummies(df, columns=['source', 'browser', 'sex'], prefix= ['source', 'browser', 'sex'])
 
-    df = pd.get_dummies(df, columns=['source', 'browser', 'sex', 'age_group'], prefix= ['source', 'browser', 'sex', 'age_group'])
+    # Convert all dummy columns (which are uint8) into int
+    df = df.astype({col: int for col in df.select_dtypes(include=['bool']).columns})
     
     df['country'] = encoder.fit_transform(df['country'])
 
