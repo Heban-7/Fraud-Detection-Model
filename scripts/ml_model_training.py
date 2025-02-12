@@ -2,8 +2,6 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.preprocessing import PolynomialFeatures
-from sklearn.pipeline import Pipeline
 from sklearn.linear_model import LogisticRegression, RidgeClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
@@ -29,7 +27,7 @@ def feature_target_split(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series]:
     y = df['class']
     return X, y
 
-def train_valid_test_split(X: pd.DataFrame, y: pd.Series) -> Tuple:
+def get_train_test_split(X: pd.DataFrame, y: pd.Series) -> Tuple:
     """
     Split the dataset into training, validation, and test sets.
     """
@@ -39,36 +37,24 @@ def train_valid_test_split(X: pd.DataFrame, y: pd.Series) -> Tuple:
     return X_train, X_test, y_train, y_test
 
 class LogisticRegressionModel:
-    def __init__(self, degree: int = 1, use_regularization: bool = False, lambda_: float = 0.0):
+    def __init__(self):
         """
         Initialize the Logistic Regression model pipeline.
         """
-        self.poly = PolynomialFeatures(degree, include_bias=False)
-
-        if use_regularization:
-            self.model = RidgeClassifier(alpha=lambda_)
-        else:
-            self.model = LogisticRegression(max_iter=1000, random_state=42)
-
-        self.pipeline = Pipeline([
-            ('poly_features', self.poly),
-            ('classifier', self.model)
-        ])
+        self.model = LogisticRegression(random_state=42)
 
     def fit(self, X_train: pd.DataFrame, y_train: pd.Series) -> None:
         """
         Train the Logistic Regression model with hyperparameter tuning.
         """
         param_grid = {
-            'classifier__C': [0.001, 0.01, 0.1, 1, 10, 100],
-            'classifier__solver': ['liblinear', 'lbfgs'],
-            'classifier__penalty': ['l1', 'l2']
+                'C': [0.001, 0.01, 0.1, 1, 10, 100],
+                'solver': ['liblinear', 'lbfgs'],
+                'penalty': ['l1', 'l2']
         }
-
         self.grid_search = GridSearchCV(
-            self.pipeline, param_grid, cv=5, scoring='f1', n_jobs=-1, verbose=1
+            self.model, param_grid, cv=5, scoring='f1', n_jobs=-1, verbose=1
         )
-
         self.grid_search.fit(X_train, y_train)
 
     def predict(self, X_test: pd.DataFrame) -> np.ndarray:
@@ -88,7 +74,6 @@ class LogisticRegressionModel:
             'f1': f1_score(y_test, y_pred),
             'roc_auc': roc_auc_score(y_test, y_pred)
         }
-
         print("Logistic Regression Evaluation")
         print("===============================")
         for metric, value in self.metrics.items():
@@ -96,9 +81,10 @@ class LogisticRegressionModel:
 
         print("Confusion Matrix:")
         print(confusion_matrix(y_test, y_pred))
-    
+        return self.metrics
+
 class DecisionTreeModel:
-    def __init__(self, max_depth: int = None, criterion: str = 'gini'):
+    def __init__(self):
         """
         Initialize the decision tree model.
         """
@@ -132,7 +118,7 @@ class DecisionTreeModel:
         """
         self.metrics = {
             "accuracy": accuracy_score(y_test, y_pred),
-            "precission": precision_score(y_test, y_pred),
+            "precision": precision_score(y_test, y_pred),
             "recall": recall_score(y_test, y_pred),
             "f1": f1_score(y_test, y_pred),
             "roc_auc": roc_auc_score(y_test, y_pred)
@@ -145,9 +131,10 @@ class DecisionTreeModel:
 
         print("Confusion Matrix:")
         print(confusion_matrix(y_test, y_pred))
+        return self.metrics
 
 class RandomForestModel:
-    def __init__(self, n_estimators: int = 100, max_depth: int = None, criterion: str = 'gini'):
+    def __init__(self):
         """
         Initialazi the Random Forest Classifier Model
         """
@@ -180,7 +167,7 @@ class RandomForestModel:
         """
         self.metrics = {
             "accuracy": accuracy_score(y_test, y_pred),
-            "precission": precision_score(y_test, y_pred),
+            "precision": precision_score(y_test, y_pred),
             "recall": recall_score(y_test, y_pred),
             "f1": f1_score(y_test, y_pred),
             "roc_auc": roc_auc_score(y_test, y_pred)
@@ -194,3 +181,28 @@ class RandomForestModel:
         print("Confusion Matrix:")
         print(confusion_matrix(y_test, y_pred))
 
+        return self.metrics
+
+def compare_model(model_metrics: Dict[str, Dict[str, float]]) -> pd.DataFrame:
+    """
+    Comparae evaluation metrics across different models and visualizes the results
+    """
+    comparison_df = pd.DataFrame(model_metrics).T
+
+    # Display metrics 
+    print('\nModel Comparison Metrics')
+    print("==========================")
+    print(comparison_df)
+
+    # Visualize metrics using bar plots
+    metrics_to_plot = ['accuracy', 'precision', 'recall', 'f1', 'roc_auc']
+    plt.figure(figsize=(12,8))
+    comparison_df[metrics_to_plot].plot(kind='bar', width=0.8)
+    plt.title("Model Performance Comparison")
+    plt.ylabel("Score")
+    plt.xticks(rotation=45)
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.tight_layout()
+    plt.show()
+    
+    return comparison_df
