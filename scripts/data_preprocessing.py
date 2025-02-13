@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import StandardScaler
-encoder = LabelEncoder()
+label_encoder = LabelEncoder()
 scaler = StandardScaler()
 
 # load data
@@ -39,21 +39,29 @@ def data_summary(df):
 def get_fraud_data(fraud_data_df):
     fraud_df = fraud_data_df.copy()
 
-    # Convert signup time and purchase time to pandas datetime format
+    # Convert to datetime
     fraud_df['signup_time'] = pd.to_datetime(fraud_df['signup_time'])
     fraud_df['purchase_time'] = pd.to_datetime(fraud_df['purchase_time'])
 
-    # Create time difference feature between signup and first purchase time
-    fraud_df['time_to_first_purchase'] = ((fraud_df['purchase_time'] - fraud_df['signup_time']).dt.total_seconds()) / (24 * 3600)  # Convert seconds to days
+    # Time difference features
+    time_diff = fraud_df['purchase_time'] - fraud_df['signup_time']
+    fraud_df['time_to_first_purchase_days'] = time_diff.dt.total_seconds() / (24*3600)
+    fraud_df['time_to_first_purchase_hours'] = time_diff.dt.total_seconds() / 3600
+    
+    # Immediate purchase flag
+    fraud_df['immediate_purchase'] = (fraud_df['time_to_first_purchase_hours'] < 1).astype(int)
 
-    # Move column next to purchase time
-    fraud_df.insert(
-        fraud_df.columns.get_loc('purchase_time') + 1, 
-        'time_to_first_purchase', 
-        fraud_df.pop('time_to_first_purchase')
-    )
+    # Move new columns next to purchase_time
+    cols = ['time_to_first_purchase_days', 'immediate_purchase']
+    for idx, col in enumerate(cols, start=1):
+        fraud_df.insert(
+            fraud_df.columns.get_loc('purchase_time') + idx,
+            col,
+            fraud_df.pop(col)
+        )
 
     return fraud_df
+
 
 
 def purchase_value_visualization(fraud_df):
@@ -144,14 +152,14 @@ def time_to_first_purchase_visualization(fraud_df):
     plt.figure(figsize=(12, 5))
 
     plt.subplot(1,2,1)
-    sns.histplot(data=fraud_df, x='time_to_first_purchase', hue='class', multiple='stack', kde=True)
-    plt.xlabel("Time to First Purchase (seconds)")
+    sns.histplot(data=fraud_df, x='time_to_first_purchase_hours', hue='class', multiple='stack', kde=True)
+    plt.xlabel("Time to First Purchase (hours)")
     plt.ylabel("Frequency")
     plt.title("Distribution of Time to First Purchase")
 
     plt.subplot(1,2,2)
-    sns.kdeplot(fraud_df[fraud_df['class']== 0]['time_to_first_purchase'] /3600, label='Not Fraud', shade=True, color='blue')
-    sns.kdeplot(fraud_df[fraud_df['class']== 1]['time_to_first_purchase'] /3600, label='Fraud', shade=True, color='red')
+    sns.kdeplot(fraud_df[fraud_df['class']== 0]['time_to_first_purchase_hours'], label='Not Fraud', shade=True, color='blue')
+    sns.kdeplot(fraud_df[fraud_df['class']== 1]['time_to_first_purchase_hours'], label='Fraud', shade=True, color='red')
     plt.xlabel('Time To First Purchase (Hours)')
     plt.ylabel('Density')
     plt.title("Distribution of Time to First Purchase by Fraud Class")
@@ -188,87 +196,113 @@ def relation_signup_purchase_time(fraud_df):
     plt.show()
 
 def merge_data(fraud_df, ip_address_df):
+    # Convert IP addresses to numeric
     fraud = fraud_df.copy()
-    ip = ip_address_df.copy()
-    # Ensure data types are numeric for range comparison
     fraud['ip_address'] = pd.to_numeric(fraud['ip_address'], errors='coerce')
-    ip['lower_bound_ip_address'] = pd.to_numeric(ip['lower_bound_ip_address'], errors='coerce')
-    ip['upper_bound_ip_address'] = pd.to_numeric(ip['upper_bound_ip_address'], errors='coerce')
+    ip_address_df = ip_address_df.copy()
+    ip_address_df['lower_bound_ip_address'] = pd.to_numeric(ip_address_df['lower_bound_ip_address'], errors='coerce')
+    ip_address_df['upper_bound_ip_address'] = pd.to_numeric(ip_address_df['upper_bound_ip_address'], errors='coerce')
 
-    # Sort both datasets for asof merge
-    fraud = fraud.sort_values(by='ip_address')
-    ip = ip.sort_values(by='lower_bound_ip_address')
-
-    # Merge datasets by range
+    # Merge with IP-country mapping
     merged_df = pd.merge_asof(
-        fraud, 
-        ip, 
-        left_on='ip_address', 
-        right_on='lower_bound_ip_address', 
+        fraud.sort_values('ip_address'),
+        ip_address_df.sort_values('lower_bound_ip_address'),
+        left_on='ip_address',
+        right_on='lower_bound_ip_address',
         direction='backward'
     )
 
-    # Filter rows where ip_address falls within valid ranges
+    # Filter valid IP ranges and add country frequency
     merged_df = merged_df[
         (merged_df['ip_address'] >= merged_df['lower_bound_ip_address']) &
         (merged_df['ip_address'] <= merged_df['upper_bound_ip_address'])
     ]
-
-    # Select relevant columns
-    merged_df = merged_df.drop(['lower_bound_ip_address', 'upper_bound_ip_address'], axis=1)
-
-    # Display the merged result
+    merged_df['country_freq'] = merged_df.groupby('country')['country'].transform('count')
+    merged_df.drop(['lower_bound_ip_address', 'upper_bound_ip_address'], axis=1, inplace=True)
+    
     return merged_df
 
 
+
 def feature_engineering(fraud_data_df, ip_address_df):
-
     fraud_df = get_fraud_data(fraud_data_df)
-
     df = merge_data(fraud_df, ip_address_df)
 
-    # Convert columns to datetime
-    df['signup_time'] = pd.to_datetime(df['signup_time'], errors='coerce')
-    df['purchase_time'] = pd.to_datetime(df['purchase_time'], errors='coerce')
+    # Datetime feature extraction
+    for prefix in ['signup', 'purchase']:
+        dt_col = f'{prefix}_time'
+        df[f'{prefix}_month'] = df[dt_col].dt.month
+        df[f'{prefix}_day'] = df[dt_col].dt.day
+        df[f'{prefix}_hour'] = df[dt_col].dt.hour
+        df[f'{prefix}_dayofweek'] = df[dt_col].dt.dayofweek
+        df[f'{prefix}_is_weekend'] = df[f'{prefix}_dayofweek'].isin([5,6]).astype(int)
 
-    # Extract year, month, day, and hour from time columns
-    df['signup_year'] = df['signup_time'].dt.year
-    df['signup_month'] = df['signup_time'].dt.month
-    df['signup_day'] = df['signup_time'].dt.day
-    df['signup_hour'] = df['signup_time'].dt.hour
+    # Time of day categorization
+    def time_of_day(hour):
+        if 0 <= hour < 6: return 'night'
+        elif hour < 12: return 'morning'
+        elif hour < 18: return 'afternoon'
+        else: return 'evening'
+    
+    for prefix in ['purchase']:
+        df[f'{prefix}_timeofday'] = df[f'{prefix}_hour'].apply(time_of_day)
 
-    df['purchase_year'] = df['purchase_time'].dt.year
-    df['purchase_month'] = df['purchase_time'].dt.month
-    df['purchase_day'] = df['purchase_time'].dt.day
-    df['purchase_hour'] = df['purchase_time'].dt.hour
+    # Age binning
+    df['age_group'] = pd.cut(df['age'],
+                            bins=[0, 18, 25, 35, 50, 100],
+                            labels=['_18', '18_25', '26_35', '36_50', '50_'])
 
-    # drop uncessarly columns for model training
-    df.drop(['signup_time', 'purchase_time', 'user_id', 'device_id', 'ip_address', 'signup_year', 'purchase_year'], axis =1, inplace = True)
+    # Transaction value transformations
+    df['log_purchase_value'] = np.log1p(df['purchase_value'])
+    df['purchase_value_high'] = (df['purchase_value'] > df['purchase_value'].quantile(0.95)).astype(int)
+
+    # Aggregated features
+    for entity in ['device_id', 'ip_address', 'user_id']:
+        # Transaction counts
+        df[f'{entity}_tx_count'] = df.groupby(entity)[entity].transform('count')
+        
+        # Unique users per device/ip
+        if entity != 'user_id':
+            df[f'{entity}_unique_users'] = df.groupby(entity)['user_id'].transform('nunique')
+
+    # Drop original columns
+    cols_to_drop = ['signup_time', 'purchase_time', 'user_id', 
+                   'device_id', 'ip_address', 'time_to_first_purchase_hours']
+    df.drop([col for col in cols_to_drop if col in df.columns], axis=1, inplace=True)
 
     return df
+
 
 def numerical_scaler(df):
     numerical_cols = [
-    "purchase_value", "age", "time_to_first_purchase",
-    "signup_month", "signup_day", "signup_hour",
-    "purchase_month", "purchase_day", "purchase_hour"
+        'purchase_value', 'age', 'time_to_first_purchase_days',
+        'log_purchase_value', 'country_freq', 'device_id_tx_count',
+        'ip_address_tx_count', 'user_id_tx_count', 'device_id_unique_users',
+        'ip_address_unique_users', 'signup_month', 'signup_day', 'signup_hour',
+        'purchase_month', 'purchase_day', 'purchase_hour'
     ]
-    # Apply StandardScaler
+    numerical_cols = [col for col in numerical_cols if col in df.columns]
+    
     df[numerical_cols] = scaler.fit_transform(df[numerical_cols])
-
     return df
 
+
 def categorical_encoder(df):
-    # Convert all object columns to categorical
+    # Convert remaining strings to categories
     for col in df.select_dtypes(include=['object']).columns:
         df[col] = df[col].astype('category')
     
-    # Convert categorical columns into numerical using one-hot-encoding
-    df = pd.get_dummies(df, columns=['source', 'browser', 'sex'], prefix= ['source', 'browser', 'sex'])
+    # Cinvert country into numerical using LabelEncoder
+    df['country'] = label_encoder.fit_transform(df['country'])
 
-    # Convert all dummy columns (which are uint8) into int
-    df = df.astype({col: int for col in df.select_dtypes(include=['bool']).columns})
+    # Get categorical columns
+    cat_cols = df.select_dtypes(include=['category']).columns.tolist()
     
-    df['country'] = encoder.fit_transform(df['country'])
-
+    # One-hot encode all categorical features
+    df = pd.get_dummies(df, columns=cat_cols, prefix_sep='_')
+    
+    # Convert boolean columns to integers
+    bool_cols = df.select_dtypes(include=['bool']).columns
+    df[bool_cols] = df[bool_cols].astype(int)
+    
     return df
