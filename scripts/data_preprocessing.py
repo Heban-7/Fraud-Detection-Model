@@ -45,20 +45,7 @@ def get_fraud_data(fraud_data_df):
 
     # Time difference features
     time_diff = fraud_df['purchase_time'] - fraud_df['signup_time']
-    fraud_df['time_to_first_purchase_days'] = time_diff.dt.total_seconds() / (24*3600)
     fraud_df['time_to_first_purchase_hours'] = time_diff.dt.total_seconds() / 3600
-    
-    # Immediate purchase flag
-    fraud_df['immediate_purchase'] = (fraud_df['time_to_first_purchase_hours'] < 1).astype(int)
-
-    # Move new columns next to purchase_time
-    cols = ['time_to_first_purchase_days', 'immediate_purchase']
-    for idx, col in enumerate(cols, start=1):
-        fraud_df.insert(
-            fraud_df.columns.get_loc('purchase_time') + idx,
-            col,
-            fraud_df.pop(col)
-        )
 
     return fraud_df
 
@@ -195,9 +182,9 @@ def relation_signup_purchase_time(fraud_df):
     plt.colorbar(label="Fraud Class")
     plt.show()
 
-def merge_data(fraud_df, ip_address_df):
+def merge_data(fraud_data_df, ip_address_df):
     # Convert IP addresses to numeric
-    fraud = fraud_df.copy()
+    fraud = fraud_data_df.copy()
     fraud['ip_address'] = pd.to_numeric(fraud['ip_address'], errors='coerce')
     ip_address_df = ip_address_df.copy()
     ip_address_df['lower_bound_ip_address'] = pd.to_numeric(ip_address_df['lower_bound_ip_address'], errors='coerce')
@@ -217,16 +204,24 @@ def merge_data(fraud_df, ip_address_df):
         (merged_df['ip_address'] >= merged_df['lower_bound_ip_address']) &
         (merged_df['ip_address'] <= merged_df['upper_bound_ip_address'])
     ]
-    merged_df['country_freq'] = merged_df.groupby('country')['country'].transform('count')
     merged_df.drop(['lower_bound_ip_address', 'upper_bound_ip_address'], axis=1, inplace=True)
     
     return merged_df
 
 
+def feature_engineering(df):
+    df = df.copy()
+        # Convert to datetime
+    df['signup_time'] = pd.to_datetime(df['signup_time'])
+    df['purchase_time'] = pd.to_datetime(df['purchase_time'])
 
-def feature_engineering(fraud_data_df, ip_address_df):
-    fraud_df = get_fraud_data(fraud_data_df)
-    df = merge_data(fraud_df, ip_address_df)
+    # Time difference features
+    time_diff = df['purchase_time'] - df['signup_time']
+    df['time_to_first_purchase_days'] = time_diff.dt.total_seconds() / (24*3600)
+    df['time_to_first_purchase_hours'] = time_diff.dt.total_seconds() / 3600
+    
+    # Immediate purchase flag
+    df['immediate_purchase'] = (df['time_to_first_purchase_hours'] < 1).astype(int)
 
     # Datetime feature extraction
     for prefix in ['signup', 'purchase']:
@@ -247,6 +242,9 @@ def feature_engineering(fraud_data_df, ip_address_df):
     for prefix in ['purchase']:
         df[f'{prefix}_timeofday'] = df[f'{prefix}_hour'].apply(time_of_day)
 
+    # Country frequency 
+    df['country_freq'] = df.groupby('country')['country'].transform('count')
+    
     # Age binning
     df['age_group'] = pd.cut(df['age'],
                             bins=[0, 18, 25, 35, 50, 100],
