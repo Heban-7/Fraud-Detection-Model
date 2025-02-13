@@ -124,7 +124,7 @@ class DecisionTreeModel:
             "roc_auc": roc_auc_score(y_test, y_pred)
         }
 
-        print("Dicision Tree Model Evaluation")
+        print("Random Forest Model Evaluation")
         print("==============================")
         for metric, value in self.metrics.items():
             print(f"{metric.capitalize()}: {value:.4f}")
@@ -145,11 +145,11 @@ class RandomForestModel:
         Train The Random Forest tree with Hyparpharameter
         """
         param_grid = {
-            'n_estimators': [50, 100, 150, 200],
+            'n_estimators': [50, 100, 150],
             'criterion': ['gini', 'entropy'],
-            'max_depth': [5, 10, 20, None],
-            'min_samples_split': [2, 5, 10],
-            'min_samples_leaf': [1, 2, 4]
+            'max_depth': [5, 10, None],
+            'min_samples_split': [2, 5],
+            'min_samples_leaf': [1, 2]
         }
         self.grid_search = GridSearchCV(self.model, param_grid,
                                         cv=5, scoring='f1', n_jobs=-1, verbose=1)
