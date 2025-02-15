@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Credit Card Fraud Detection</title>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <style>
+    body {
+      background-color: #f7f9fc;
+    }
+    .card {
+      margin-top: 20px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .card-header {
+      background-color: #007bff;
+      color: white;
+    }
+    .form-group label {
+      font-weight: bold;
+    }
+    .submit-btn {
+      background-color: #007bff;
+      color: white;
+    }
+    .submit-btn:hover {
+      background-color: #0056b3;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-md-10">
+        <div class="card">
+          <div class="card-header">
+            <h4 class="mb-0">Credit Card Fraud Detection</h4>
+          </div>
+          <div class="card-body">
+            {% if prediction_text %}
+              <div class="alert alert-info">
+                {{ prediction_text }}
+              </div>
+            {% endif %}
+            <form action="/predict" method="post">
+              <div class="form-row">
+                <!-- Row 1 -->
+                <div class="form-group col-md-4">
+                  <label for="Time">Time</label>
+                  <input type="number" step="any" class="form-control" id="Time" name="Time" required>
+                </div>
+                <div class="form-group col-md-4">
+                  <label for="V1">V1</label>
+                  <input type="number" step="any" class="form-control" id="V1" name="V1" required>
+                </div>
+                <div class="form-group col-md-4">
+                  <label for="V2">V2</label>
+                  <input type="number" step="any" class="form-control" id="V2" name="V2" required>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <!-- Row 2 -->
+                <div class="form-group col-md-4">
+                  <label for="V3">V3</label>
+                  <input type="number" step="any" class="form-control" id="V3" name="V3" required>
+                </div>
+                <div class="form-group col-md-4">
+                  <label for="V4">V4</label>
+                  <input type="number" step="any" class="form-control" id="V4" name="V4" required>
+                </div>
+                <div class="form-group col-md-4">
+                  <label for="V5">V5</label>
+                  <input type="number" step="any" class="form-control" id="V5" name="V5" required>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <!-- Row 3 -->
+                <div class="form-group col-md-4">
+                  <label for="V6">V6</label>
+                  <input type="number" step="any" class="form-control" id="V6" name="V6" required>
+                </div>
+                <div class="form-group col-md-4">
+                  <label for="V7">V7</label>
+                  <input type="number" step="any" class="form-control" id="V7" name="V7" required>
+                </div>
+                <div class="form-group col-md-4">
+                  <label for="V8">V8</label>
+                  <input type="number" step="any" class="form-control" id="V8" name="V8" required>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <!-- Row 4 -->
+                <div class="form-group col-md-4">
+                  <label for="V9">V9</label>
+                  <input type="number" step="any" class="form-control" id="V9" name="V9" required>
+                </div>
+                <div class="form-group col-md-4">
+                  <label for="V10">V10</label>
+                  <input type="number" step="any" class="form-control" id="V10" name="V10" required>
+                </div>
+                <div class="form-group col-md-4">
+                  <label for="V11">V11</label>
+                  <input type="number" step="any" class="form-control" id="V11" name="V11" required>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <!-- Row 5 -->
+                <div class="form-group col-md-4">
+                  <label for="V12">V12</label>
+                  <input type="number" step="any" class="form-control" id="V12" name="V12" required>
+                </div>
+                <div class="form-group col-md-4">
+                  <label for="V13">V13</label>
+                  <input type="number" step="any" class="form-control" id="V13" name="V13" required>
+                </div>
+                <div class="form-group col-md-4">
+                  <label for="V14">V14</label>
+                  <input type="number" step="any" class="form-control" id="V14" name="V14" required>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <!-- Row 6 -->
+                <div class="form-group col-md-4">
+                  <label for="V15">V15</label>
+                  <input type="number" step="any" class="form-control" id="V15" name="V15" required>
+                </div>
+                <div class="form-group col-md-4">
+                  <label for="V16">V16</label>
+                  <input type="number" step="any" class="form-control" id="V16" name="V16" required>
+                </div>
+                <div class="form-group col-md-4">
+                  <label for="V17">V17</label>
+                  <input type="number" step="any" class="form-control" id="V17" name="V17" required>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <!-- Row 7 -->
+                <div class="form-group col-md-4">
+                  <label for="V18">V18</label>
+                  <input type="number" step="any" class="form-control" id="V18" name="V18" required>
+                </div>
+                <div class="form-group col-md-4">
+                  <label for="V19">V19</label>
+                  <input type="number" step="any" class="form-control" id="V19" name="V19" required>
+                </div>
+                <div class="form-group col-md-4">
+                  <label for="V20">V20</label>
+                  <input type="number" step="any" class="form-control" id="V20" name="V20" required>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <!-- Row 8 -->
+                <div class="form-group col-md-4">
+                  <label for="V21">V21</label>
+                  <input type="number" step="any" class="form-control" id="V21" name="V21" required>
+                </div>
+                <div class="form-group col-md-4">
+                  <label for="V22">V22</label>
+                  <input type="number" step="any" class="form-control" id="V22" name="V22" required>
+                </div>
+                <div class="form-group col-md-4">
+                  <label for="V23">V23</label>
+                  <input type="number" step="any" class="form-control" id="V23" name="V23" required>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <!-- Row 9 -->
+                <div class="form-group col-md-4">
+                  <label for="V24">V24</label>
+                  <input type="number" step="any" class="form-control" id="V24" name="V24" required>
+                </div>
+                <div class="form-group col-md-4">
+                  <label for="V25">V25</label>
+                  <input type="number" step="any" class="form-control" id="V25" name="V25" required>
+                </div>
+                <div class="form-group col-md-4">
+                  <label for="V26">V26</label>
+                  <input type="number" step="any" class="form-control" id="V26" name="V26" required>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <!-- Row 10 -->
+                <div class="form-group col-md-4">
+                  <label for="V27">V27</label>
+                  <input type="number" step="any" class="form-control" id="V27" name="V27" required>
+                </div>
+                <div class="form-group col-md-4">
+                  <label for="V28">V28</label>
+                  <input type="number" step="any" class="form-control" id="V28" name="V28" required>
+                </div>
+                <div class="form-group col-md-4">
+                  <label for="Amount">Amount</label>
+                  <input type="number" step="any" class="form-control" id="Amount" name="Amount" required>
+                </div>
+              </div>
+              
+              <button type="submit" class="btn submit-btn btn-block mt-4">Predict Fraud</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Bootstrap JS dependencies -->
+  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

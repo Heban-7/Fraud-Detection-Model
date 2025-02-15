@@ -1,4 +1,4 @@
 data/
 .venv
-ModelDeployment/model/
-
+ModelDeployment/CreditCardDeployment/model/
+ModelDeployment/FraudDetectionDeployment/model/
